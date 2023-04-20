@@ -1,0 +1,151 @@
+usertype Biometric;
+const B1 : Biometric;
+const B2 : Biometric;
+
+usertype TempID;
+const beta' : TempID;
+
+usertype Challenge;
+const Cu' : Challenge;
+const Csn' : Challenge;
+
+usertype Random;
+
+usertype RandomSecret;
+const R1sg : RandomSecret;
+const R2sg : RandomSecret;
+
+usertype TempSecret;
+
+usertype CurvePoint;
+const G : CurvePoint;
+const H : CurvePoint;
+const F : CurvePoint;
+
+const Pu : Function;
+const Psn : Function;
+const ECM : Function;
+const SUB : Function;
+const MUL : Function;
+const ECA : Function;
+const OR : Function;
+
+hashfunction h;
+hashfunction t96;
+
+macro Ru' = Pu(Cu);
+macro Rsn' = Psn(Csn);
+macro r1 = SUB(V, MUL(t96(h(B1')), Cu));
+macro r2 = SUB(V, MUL(t96(h(Ru')), Cu));
+macro r3 = SUB(M, MUL(t96(h(Rsn')), Csn));
+
+macro K1 = {R1sg, OR(SKu, R1sg, betanew)}k(Gateway, U);
+macro K2 = {R2sg, OR(SKsn, R2sg, gammanew)}k(Gateway, SN);
+
+protocol ZKP-AKA-Protocol (U, SN, Gateway) {
+	role U {
+		fresh B1' : Biometric;
+		fresh B2' : Biometric;
+
+		match(B1', B1);
+		match(B2', B2);
+
+		fresh N1 : Nonce;
+		fresh beta : TempID;
+		send_1(U, Gateway, (beta, N1));
+
+		var N2 : Nonce;
+		var Cu : Challenge;
+		recv_2(Gateway, U, (N2, Cu));
+
+		fresh N3 : Nonce;
+		fresh V : Random;
+		send_3(U, Gateway, (N3, ECM(V, G), ECM(V, H), r1, r2));
+
+		var N6 : Nonce;
+		var R1sg: RandomSecret;
+		var SKu: TempSecret;
+		var betanew: TempID;
+		recv_6(Gateway, U, (N6, K1));
+
+		claim(U, Secret, R1sg);
+		claim(U, Secret, SKu);		
+		claim(U, Alive);
+		claim(U, Nisynch);
+		claim(U, Niagree);
+		claim(U, Weakagree);
+
+
+	}
+
+	role Gateway {
+		fresh tou1 : CurvePoint;
+		fresh tou2 : CurvePoint;
+		fresh phi : CurvePoint;
+
+		var beta : TempID;
+		var N1 : Nonce;
+		recv_1(U, Gateway, (beta, N1));
+
+		match(beta, beta');
+
+		fresh N2 : Nonce;
+		fresh Cu : Challenge;
+		match(Cu, Cu');
+		send_2(Gateway, U, (N2, Cu));
+
+		var N3 : Nonce;
+		var V : Random;
+		var B1' : Biometric;
+		recv_3(U, Gateway, (N3, ECM(V, G), ECM(V, H), r1, r2));
+
+		match(ECM(V, G), ECA(ECM(r1, G), ECM(Cu, tou1)));
+		match(ECM(V, H), ECA(ECM(r2, H), ECM(Cu, tou2)));
+
+		fresh N4 : Nonce;
+		fresh Csn : Challenge;
+		match(Csn, Csn');
+		send_4(Gateway, SN, (N4, Csn, beta));
+
+		var N5 : Nonce;
+		var M : Random;
+		recv_5(SN, Gateway, (N5, ECM(M, F), r3));
+
+		match(ECM(M, F), ECA(ECM(r3, F), ECM(Csn, phi)));
+
+		fresh N6, N7 : Nonce;
+		fresh betanew, gammanew : TempID;
+		fresh SKu : TempSecret;
+		fresh SKsn : TempSecret;
+
+		send_6(Gateway, U, (N6, K1));
+		send_7(Gateway, SN, (N7, K2));
+
+	}
+
+	role SN {
+		var N4 : Nonce;
+		var Csn : Challenge;
+		var beta : TempID;
+		recv_4(Gateway, SN, (N4, Csn, beta));
+	
+		fresh N5 : Nonce;
+		fresh M : Random;
+		send_5(SN, Gateway, (N5, ECM(M, F), r3));
+
+		var N7 : Nonce;
+		var SKsn: TempSecret;
+		var R2sg: RandomSecret;
+		var gammanew: TempID;
+		recv_7(Gateway, SN, (N7, K2));
+
+		claim(SN, Secret, R2sg);
+		claim(SN, Secret, SKsn);
+		claim(SN, Alive);
+		claim(SN, Nisynch);
+		claim(SN, Niagree);
+		claim(SN, Weakagree);
+
+
+	}
+}
